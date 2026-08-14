@@ -69,6 +69,11 @@ func RecordAPIRequest(ctx context.Context, cfg *config.Config, info UpstreamRequ
 	if ginCtx == nil {
 		return
 	}
+	logging.MergeGinRequestEventDetails(ginCtx, logging.RequestEventDetails{
+		Provider:     info.Provider,
+		AccountAlias: info.AuthLabel,
+		RetryCount:   len(getAttempts(ginCtx)),
+	})
 	if !cfg.RequestLog {
 		deferAPIRequest(ginCtx, info)
 		return

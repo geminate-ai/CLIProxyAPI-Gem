@@ -11,6 +11,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v7/internal/home"
 	"github.com/router-for-me/CLIProxyAPI/v7/internal/redisqueue"
 	"github.com/router-for-me/CLIProxyAPI/v7/internal/registry"
+	"github.com/router-for-me/CLIProxyAPI/v7/internal/requestlog"
 	sdkaccess "github.com/router-for-me/CLIProxyAPI/v7/sdk/access"
 	sdkAuth "github.com/router-for-me/CLIProxyAPI/v7/sdk/auth"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/auth"
@@ -115,8 +116,34 @@ func (s *Service) Run(ctx context.Context) error {
 		redisqueue.SetEnabled(true)
 	}
 
-	// handlers no longer depend on legacy clients; pass nil slice initially
-	s.server = api.NewServer(s.cfg, s.coreManager, s.accessManager, s.configPath, s.serverOptions...)
+	// handlers no longer depend on legacy clients; pass nil slice initially.
+	serverOptions := append([]api.ServerOption(nil), s.serverOptions...)
+	if s.cfg != nil && s.cfg.RequestLogStore.Enabled {
+		cleanupInterval, errCleanup := time.ParseDuration(s.cfg.RequestLogStore.CleanupInterval)
+		busyTimeout, errBusy := time.ParseDuration(s.cfg.RequestLogStore.BusyTimeout)
+		if errCleanup != nil || errBusy != nil {
+			log.Warn("request-log store disabled because duration configuration is invalid")
+		} else {
+			store, errOpen := requestlog.Open(ctx, requestlog.Options{
+				Path:            s.cfg.RequestLogStore.SQLitePath,
+				RetentionDays:   s.cfg.RequestLogStore.RetentionDays,
+				MaxDatabaseMB:   s.cfg.RequestLogStore.MaxDatabaseMB,
+				CleanupInterval: cleanupInterval,
+				BusyTimeout:     busyTimeout,
+				RedactErrors:    s.cfg.RequestLogStore.RedactErrors,
+			})
+			if errOpen != nil {
+				log.WithError(errOpen).Warn("request-log store unavailable; proxy traffic will continue without durable capture")
+			} else {
+				s.requestLogStore = store
+				serverOptions = append(serverOptions, api.WithRequestEventSink(store))
+			}
+		}
+	}
+	s.server = api.NewServer(s.cfg, s.coreManager, s.accessManager, s.configPath, serverOptions...)
+	if s.requestLogStore != nil {
+		s.server.SetRequestLogStore(s.requestLogStore)
+	}
 	s.syncPluginRuntimeConfig(ctx)
 	if homeEnabled {
 		s.syncPluginModelRuntime(ctx)
@@ -325,6 +352,15 @@ func (s *Service) Shutdown(ctx context.Context) error {
 					shutdownErr = err
 				}
 			}
+		}
+		if s.requestLogStore != nil {
+			if errClose := s.requestLogStore.Close(); errClose != nil {
+				log.WithError(errClose).Error("failed to close request-log store")
+				if shutdownErr == nil {
+					shutdownErr = errClose
+				}
+			}
+			s.requestLogStore = nil
 		}
 
 		if s.pluginHost != nil {

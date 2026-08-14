@@ -18,6 +18,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v7/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v7/internal/pluginhost"
 	"github.com/router-for-me/CLIProxyAPI/v7/internal/pluginstore"
+	"github.com/router-for-me/CLIProxyAPI/v7/internal/requestlog"
 	sdkAuth "github.com/router-for-me/CLIProxyAPI/v7/sdk/auth"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
@@ -60,6 +61,7 @@ type Handler struct {
 	pluginStoreHTTPClient   pluginstore.HTTPDoer
 	pluginReleaseCacheMu    sync.Mutex
 	pluginReleaseCache      map[string]pluginReleaseCacheEntry
+	requestLogRepository    RequestLogRepository
 }
 
 type configReloadSnapshot struct {
@@ -148,6 +150,37 @@ func (h *Handler) SetPluginHost(host *pluginhost.Host) {
 	h.mu.Lock()
 	h.pluginHost = host
 	h.mu.Unlock()
+}
+
+// SetRequestLogRepository updates the request-log repository used by the
+// management request-log endpoints. A nil repository makes those endpoints
+// report that request-log storage is unavailable.
+func (h *Handler) SetRequestLogRepository(repository RequestLogRepository) {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	h.requestLogRepository = repository
+	h.mu.Unlock()
+}
+
+// SetRequestLogStore adapts a request-log storage repository for the
+// management endpoints without exposing persistence details to HTTP handlers.
+func (h *Handler) SetRequestLogStore(repository requestlog.Repository) {
+	if repository == nil {
+		h.SetRequestLogRepository(nil)
+		return
+	}
+	h.SetRequestLogRepository(requestLogStoreAdapter{repository: repository})
+}
+
+func (h *Handler) getRequestLogRepository() RequestLogRepository {
+	if h == nil {
+		return nil
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.requestLogRepository
 }
 
 // SetConfigReloadHook updates the callback used after management saves config changes.

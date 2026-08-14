@@ -2126,6 +2126,39 @@ func TestDefaultRequestLoggerFactory_UsesResolvedLogDirectory(t *testing.T) {
 	}
 }
 
+type serverRequestEventSink struct {
+	mu     sync.Mutex
+	events []internallogging.RequestEvent
+}
+
+func (s *serverRequestEventSink) CaptureRequestEvent(event internallogging.RequestEvent) {
+	s.mu.Lock()
+	s.events = append(s.events, event)
+	s.mu.Unlock()
+}
+
+func TestWithRequestEventSinkCapturesProxyLifecycle(t *testing.T) {
+	sink := &serverRequestEventSink{}
+	server := newTestServerWithOptions(t, WithRequestEventSink(sink))
+
+	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	response := httptest.NewRecorder()
+	server.engine.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("healthz status = %d, want %d", response.Code, http.StatusOK)
+	}
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	if len(sink.events) != 1 {
+		t.Fatalf("captured events = %d, want 1", len(sink.events))
+	}
+	event := sink.events[0]
+	if event.Route != "/healthz" || event.StatusCode != http.StatusOK || event.RequestID == "" {
+		t.Fatalf("captured event = %#v", event)
+	}
+}
+
 func TestFormatHomeClaudeModelIncludesAnthropicSchemaFields(t *testing.T) {
 	withMetadata := formatHomeClaudeModel(homeModelEntry{
 		id:                  "claude-sonnet-4-6",

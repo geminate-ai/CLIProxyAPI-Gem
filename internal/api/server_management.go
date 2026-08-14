@@ -95,6 +95,11 @@ func (s *Server) registerManagementRoutes() {
 
 		mgmt.GET("/logs", s.mgmt.GetLogs)
 		mgmt.DELETE("/logs", s.mgmt.DeleteLogs)
+		mgmt.GET("/request-logs/summary", s.mgmt.GetRequestLogSummary)
+		mgmt.GET("/request-logs/export", s.mgmt.ExportRequestLogs)
+		mgmt.GET("/request-logs/:id", s.mgmt.GetRequestLogEvent)
+		mgmt.GET("/request-logs", s.mgmt.ListRequestLogs)
+		mgmt.DELETE("/request-logs", s.mgmt.DeleteRequestLogs)
 		mgmt.GET("/request-error-logs", s.mgmt.GetRequestErrorLogs)
 		mgmt.GET("/request-error-logs/:name", s.mgmt.DownloadRequestErrorLog)
 		mgmt.GET("/request-log-by-id/:id", s.mgmt.GetRequestLogByID)

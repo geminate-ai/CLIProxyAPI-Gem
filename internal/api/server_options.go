@@ -18,6 +18,7 @@ type serverOptionConfig struct {
 	engineConfigurator    func(*gin.Engine)
 	routerConfigurator    func(*gin.Engine, *handlers.BaseAPIHandler, *config.Config)
 	requestLoggerFactory  func(*config.Config, string) logging.RequestLogger
+	requestEventSink      logging.RequestEventSink
 	localPassword         string
 	keepAliveEnabled      bool
 	keepAliveTimeout      time.Duration
@@ -27,6 +28,14 @@ type serverOptionConfig struct {
 	pluginHost            *pluginhost.Host
 	configReloadHook      func(context.Context, *config.Config)
 	exampleAPIKeySafeMode bool
+}
+
+// WithRequestEventSink registers an optional fail-open request lifecycle sink.
+// The sink receives only sanitized allow-listed metadata from proxy requests.
+func WithRequestEventSink(sink logging.RequestEventSink) ServerOption {
+	return func(cfg *serverOptionConfig) {
+		cfg.requestEventSink = sink
+	}
 }
 
 // ServerOption customises HTTP server construction.

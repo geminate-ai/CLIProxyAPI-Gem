@@ -35,7 +35,8 @@ The Docker deployment already persists `/CLIProxyAPI/logs`. SQLite storage shoul
 ## 5. Configuration
 
 ```yaml
-request-log:
+# This is intentionally distinct from the existing request-log boolean, which controls file logs.
+request-log-store:
   enabled: false
   driver: "sqlite"
   sqlite-path: "/CLIProxyAPI/logs/requests.db"
@@ -121,6 +122,22 @@ All endpoints require the existing management authentication and remote-manageme
 Queries must use parameters, enforce time/range limits, and return stable error objects. No endpoint may return raw stored secrets, even if legacy rows contain them.
 
 ## 9. Management UI
+
+### Delivery boundary
+
+The management panel is not source-controlled in this repository. The server
+serves a downloaded `management.html` bundle from the management asset
+directory; `internal/managementasset` obtains that bundle from the Management
+Center release configured by `remote-management.panel-github-repository`.
+Consequently, this repository can expose the authenticated API described below,
+but it cannot safely add a Request Logs page to the shipped panel source.
+
+The Request Logs UI must be implemented and released by the Management Center
+project (or an operator-configured fork of it). That bundle should call the
+`/v0/management/request-logs` API using the existing management authentication
+flow. Once released, operators can point `panel-github-repository` at the
+corresponding Management Center repository; no proxy binary change is required
+to load the new bundle.
 
 Add a **Request Logs** page containing:
 

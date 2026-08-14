@@ -114,6 +114,20 @@ commercial-mode: false
 # When true, write application logs to rotating files instead of stdout
 logging-to-file: false
 
+# Optional durable, sanitized request history. SQLite files should be on the persistent logs mount.
+# Request and response bodies and headers are not supported and remain disabled.
+request-log-store:
+  enabled: false
+  driver: "sqlite"
+  sqlite-path: "/CLIProxyAPI/logs/requests.db"
+  retention-days: 30
+  max-database-mb: 2048
+  cleanup-interval: "1h"
+  capture-bodies: false
+  capture-headers: false
+  redact-errors: true
+  busy-timeout: "5s"
+
 # Maximum total size (MB) of log files under the logs directory. When exceeded, the oldest log
 # files are deleted until within the limit. Set to 0 to disable.
 logs-max-total-size-mb: 0

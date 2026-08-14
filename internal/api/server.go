@@ -26,6 +26,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v7/internal/managementasset"
 	"github.com/router-for-me/CLIProxyAPI/v7/internal/pluginhost"
 	"github.com/router-for-me/CLIProxyAPI/v7/internal/redisqueue"
+	"github.com/router-for-me/CLIProxyAPI/v7/internal/requestlog"
 	sdkaccess "github.com/router-for-me/CLIProxyAPI/v7/sdk/access"
 	"github.com/router-for-me/CLIProxyAPI/v7/sdk/api/handlers"
 	"github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/auth"
@@ -105,6 +106,15 @@ type Server struct {
 	exampleAPIKeySafeModeActive  atomic.Bool
 }
 
+// SetRequestLogStore exposes a request-log repository through the authenticated
+// management API. Capture is wired separately with WithRequestEventSink.
+func (s *Server) SetRequestLogStore(repository requestlog.Repository) {
+	if s == nil || s.mgmt == nil {
+		return
+	}
+	s.mgmt.SetRequestLogStore(repository)
+}
+
 // NewServer creates and initializes a new API server instance.
 // It sets up the Gin engine, middleware, routes, and handlers.
 //
@@ -137,6 +147,9 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 	engine.Use(logging.GinLogrusLogger())
 	engine.Use(logging.GinLogrusRecovery())
 	engine.Use(logging.CPATraceIDMiddleware())
+	if optionState.requestEventSink != nil {
+		engine.Use(middleware.RequestCaptureMiddleware(optionState.requestEventSink))
+	}
 	for _, mw := range optionState.extraMiddleware {
 		engine.Use(mw)
 	}

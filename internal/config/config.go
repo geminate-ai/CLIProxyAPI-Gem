@@ -46,6 +46,11 @@ type Config struct {
 	// LoggingToFile controls whether application logs are written to rotating files or stdout.
 	LoggingToFile bool `yaml:"logging-to-file" json:"logging-to-file"`
 
+	// RequestLogStore controls optional durable, sanitized request event persistence.
+	// It is disabled by default and is intentionally independent of application file logging.
+	// The distinct request-log-store key preserves the existing request-log boolean.
+	RequestLogStore RequestLogConfig `yaml:"request-log-store" json:"request-log-store"`
+
 	// LogsMaxTotalSizeMB limits the total size (in MB) of log files under the logs directory.
 	// When exceeded, the oldest log files are deleted until within the limit. Set to 0 to disable.
 	LogsMaxTotalSizeMB int `yaml:"logs-max-total-size-mb" json:"logs-max-total-size-mb"`
