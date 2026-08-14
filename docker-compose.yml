@@ -23,6 +23,8 @@ services:
       - "11451:11451"
     volumes:
       - ${CLI_PROXY_CONFIG_PATH:-./config.yaml}:/CLIProxyAPI/config.yaml
+      # Persistence invariant: config.yaml must use auth-dir: /root/.cli-proxy-api
+      # OAuth files stored under /CLIProxyAPI are container-local and are lost on recreation.
       - ${CLI_PROXY_AUTH_PATH:-./auths}:/root/.cli-proxy-api
       - ${CLI_PROXY_LOG_PATH:-./logs}:/CLIProxyAPI/logs
       - ${CLI_PROXY_PLUGIN_PATH:-./plugins}:/CLIProxyAPI/plugins
